@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc DAU 数据看板</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 42px;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 48px rgba(0,0,0,0.15);
+        }
+        
+        .card-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .chart {
+            width: 100%;
+            height: 500px;
+        }
+        
+        .filter-section {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        }
+        
+        .filter-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .platform-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .platform-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .platform-btn:hover {
+            background: #f0f3ff;
+        }
+        
+        .platform-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .stat-change {
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        
+        .positive {
+            color: #10b981;
+        }
+        
+        .negative {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Doc 数据分析看板</h1>
+            <p>2025年 vs 2026年 全方位趋势对比分析</p>
+        </div>
+        
+        <div class="dashboard">
+            <!-- 整体趋势对比 -->
+            <div class="card">
+                <div class="card-title">📈 整体DAU趋势对比 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div class="stats-grid" id="statsGrid"></div>
+                <div id="overallChart" class="chart"></div>
+            </div>
+            
+            <!-- 平台增长率分析 -->
+            <div class="card">
+                <div class="card-title">📊 各平台同比增长率 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div id="growthChart" class="chart"></div>
+            </div>
+            
+            <!-- 平台筛选 -->
+            <div class="filter-section">
+                <div class="filter-title">🔍 选择上报平台查看DAU趋势 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div class="platform-buttons" id="platformButtons"></div>
+            </div>
+            
+            <!-- 平台趋势对比 -->
+            <div class="card">
+                <div class="card-title" id="platformChartTitle">📱 平台DAU趋势对比</div>
+                <div id="platformChart" class="chart"></div>
+            </div>
+            
+            <!-- 四个指标综合对比 -->
+            <div class="card">
+                <div class="card-title">📊 四大指标同比增长率对比 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div id="metricsCompareChart" class="chart"></div>
+            </div>
+            
+            <!-- 文档指标对比 -->
+            <div class="card">
+                <div class="card-title">📝 编辑文档数趋势对比 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div id="editChart" class="chart"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">✨ 创建文档数趋势对比 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div id="createChart" class="chart"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">🔥 活跃文档数趋势对比 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div id="activeChart" class="chart"></div>
+            </div>
+            
+            <div class="card">
+                <div class="card-title">👥 协作文档数趋势对比 <span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span></div>
+                <div id="collabChart" class="chart"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 数据处理
+        const overallData = [
+            {date: '0101', dau2025: 1384899, dau2026: 1055806},
+            {date: '0102', dau2025: 2144551, dau2026: 1126208},
+            {date: '0103', dau2025: 2021122, dau2026: 1270713},
+            {date: '0104', dau2025: 1584841, dau2026: 1832795},
+            {date: '0105', dau2025: 1892640, dau2026: 1862612},
+            {date: '0106', dau2025: 2031080, dau2026: 1895574},
+            {date: '0107', dau2025: 1938833, dau2026: 1919588},
+            {date: '0108', dau2025: 1880518, dau2026: 1848181},
+            {date: '0109', dau2025: 1826002, dau2026: 1816105},
+            {date: '0110', dau2025: 1764635, dau2026: 1366335},
+            {date: '0111', dau2025: 1347999, dau2026: 1356589},
+            {date: '0112', dau2025: 1313429, dau2026: 1821816},
+            {date: '0113', dau2025: 1735796, dau2026: 1766119},
+            {date: '0114', dau2025: 1681312, dau2026: 1757863},
+            {date: '0115', dau2025: 1672401, dau2026: 1734559},
+            {date: '0116', dau2025: 1661314, dau2026: 1730876},
+            {date: '0117', dau2025: 1657325, dau2026: 1323009},
+            {date: '0118', dau2025: 1267741, dau2026: 1356490},
+            {date: '0119', dau2025: 1233096, dau2026: 1751559},
+            {date: '0120', dau2025: 1529480, dau2026: 1644203},
+            {date: '0121', dau2025: 1419884, dau2026: 1631699},
+            {date: '0122', dau2025: 1378625, dau2026: 1628069},
+            {date: '0123', dau2025: 1349297, dau2026: 1651901},
+            {date: '0124', dau2025: 1314027, dau2026: 1264151},
+            {date: '0125', dau2025: 1088639, dau2026: 1327431},
+            {date: '0126', dau2025: 1082337, dau2026: 1692307},
+            {date: '0127', dau2025: 920191, dau2026: 1625387},
+            {date: '0128', dau2025: 690945, dau2026: 1631184},
+            {date: '0129', dau2025: 670821, dau2026: 1610135},
+            {date: '0130', dau2025: 716700, dau2026: 1657412},
+            {date: '0131', dau2025: 819865, dau2026: 1256304},
+            {date: '0201', dau2025: 866343, dau2026: 1268256},
+            {date: '0202', dau2025: 896971, dau2026: 1622805},
+            {date: '0203', dau2025: 983890, dau2026: 1544860},
+            {date: '0204', dau2025: 1065195, dau2026: 1520270},
+            {date: '0205', dau2025: 1402230, dau2026: 1516534},
+            {date: '0206', dau2025: 1481640, dau2026: 1511760},
+            {date: '0207', dau2025: 1508879, dau2026: 1168160},
+            {date: '0208', dau2025: 1478963, dau2026: 1100841},
+            {date: '0209', dau2025: 1229961, dau2026: 1388258},
+            {date: '0210', dau2025: 1644016, dau2026: 1365581},
+            {date: '0211', dau2025: 1703707, dau2026: 1256719},
+            {date: '0212', dau2025: 1651056, dau2026: 1194985},
+            {date: '0213', dau2025: 1732277, dau2026: 1060190},
+            {date: '0214', dau2025: 1713848, dau2026: 904251},
+            {date: '0215', dau2025: 1366842, dau2026: 785107},
+            {date: '0216', dau2025: 1402591, dau2026: 836105},
+            {date: '0217', dau2025: 1888348, dau2026: 716582},
+            {date: '0218', dau2025: 1846468, dau2026: 666923},
+            {date: '0219', dau2025: 1824481, dau2026: 699664},
+            {date: '0220', dau2025: 1833398, dau2026: 768630},
+            {date: '0221', dau2025: 1848827, dau2026: 821220},
+            {date: '0222', dau2025: 1423308, dau2026: 896313},
+            {date: '0223', dau2025: 1479089, dau2026: 1041404},
+            {date: '0224', dau2025: 2056743, dau2026: 1423385},
+            {date: '0225', dau2025: 2060231, dau2026: 1504606},
+            {date: '0226', dau2025: 1967900, dau2026: 1595067},
+            {date: '0227', dau2025: 1941466, dau2026: 1704122},
+            {date: '0228', dau2025: 1912486, dau2026: 1726717},
+            {date: '0301', dau2025: 1425304, dau2026: 1519145},
+            {date: '0302', dau2025: 1523820, dau2026: 1991450},
+            {date: '0303', dau2025: 2072855, dau2026: 1825893}
+        ];
+
+        // 平台数据（简化版，只包含主要平台）
+        const platformData = {
+            '微信小程序': [{date: '0101', dau2025: 417178, dau2026: 177866}, {date: '0102', dau2025: 732314, dau2026: 209088}, {date: '0103', dau2025: 709837, dau2026: 280339}, {date: '0104', dau2025: 487745, dau2026: 516188}, {date: '0105', dau2025: 504290, dau2026: 513185}, {date: '0106', dau2025: 704285, dau2026: 491639}, {date: '0107', dau2025: 675353, dau2026: 479908}, {date: '0108', dau2025: 654192, dau2026: 475362}, {date: '0109', dau2025: 643164, dau2026: 470753}, {date: '0110', dau2025: 630672, dau2026: 283705}, {date: '0111', dau2025: 439791, dau2026: 301583}, {date: '0112', dau2025: 432372, dau2026: 478795}, {date: '0113', dau2025: 610501, dau2026: 450008}, {date: '0114', dau2025: 597418, dau2026: 440038}, {date: '0115', dau2025: 597950, dau2026: 440930}, {date: '0116', dau2025: 583324, dau2026: 438721}, {date: '0117', dau2025: 578679, dau2026: 266841}, {date: '0118', dau2025: 415409, dau2026: 282015}, {date: '0119', dau2025: 393011, dau2026: 433024}, {date: '0120', dau2025: 510765, dau2026: 400998}, {date: '0121', dau2025: 466794, dau2026: 397747}, {date: '0122', dau2025: 446590, dau2026: 394832}, {date: '0123', dau2025: 438716, dau2026: 399432}, {date: '0124', dau2025: 418109, dau2026: 246013}, {date: '0125', dau2025: 330181, dau2026: 252592}, {date: '0126', dau2025: 344429, dau2026: 403869}, {date: '0127', dau2025: 272864, dau2026: 389328}, {date: '0128', dau2025: 184742, dau2026: 387616}, {date: '0129', dau2025: 170017, dau2026: 383232}, {date: '0130', dau2025: 189876, dau2026: 401675}, {date: '0131', dau2025: 220696, dau2026: 253319}, {date: '0201', dau2025: 240108, dau2026: 243493}, {date: '0202', dau2025: 251293, dau2026: 370325}, {date: '0203', dau2025: 264239, dau2026: 348280}, {date: '0204', dau2025: 307732, dau2026: 344011}, {date: '0205', dau2025: 433974, dau2026: 344739}, {date: '0206', dau2025: 470744, dau2026: 339536}, {date: '0207', dau2025: 495054, dau2026: 218905}, {date: '0208', dau2025: 491379, dau2026: 206444}, {date: '0209', dau2025: 409391, dau2026: 300069}, {date: '0210', dau2025: 573295, dau2026: 268355}, {date: '0211', dau2025: 599681, dau2026: 252894}, {date: '0212', dau2025: 560004, dau2026: 234599}, {date: '0213', dau2025: 607778, dau2026: 203072}, {date: '0214', dau2025: 616096, dau2026: 157259}, {date: '0215', dau2025: 465452, dau2026: 115419}, {date: '0216', dau2025: 486173, dau2026: 79689}, {date: '0217', dau2025: 694093, dau2026: 73597}, {date: '0218', dau2025: 663947, dau2026: 85432}, {date: '0219', dau2025: 666395, dau2026: 96900}, {date: '0220', dau2025: 679606, dau2026: 112024}, {date: '0221', dau2025: 687265, dau2026: 124394}, {date: '0222', dau2025: 477746, dau2026: 147616}, {date: '0223', dau2025: 503810, dau2026: 190121}, {date: '0224', dau2025: 749767, dau2026: 313362}, {date: '0225', dau2025: 719288, dau2026: 346559}, {date: '0226', dau2025: 712612, dau2026: 380986}, {date: '0227', dau2025: 710766, dau2026: 416367}, {date: '0228', dau2025: 704436, dau2026: 420366}, {date: '0301', dau2025: 480570, dau2026: 346654}, {date: '0302', dau2025: 520596, dau2026: 506177}, {date: '0303', dau2025: 766983, dau2026: 456593}],
+            'Web': [{date: '0101', dau2025: 308801, dau2026: 262202}, {date: '0102', dau2025: 503534, dau2026: 268407}, {date: '0103', dau2025: 491342, dau2026: 279083}, {date: '0104', dau2025: 352568, dau2026: 398455}, {date: '0105', dau2025: 331720, dau2026: 403024}, {date: '0106', dau2025: 484467, dau2026: 415524}, {date: '0107', dau2025: 466847, dau2026: 426629}, {date: '0108', dau2025: 454790, dau2026: 418928}, {date: '0109', dau2025: 454276, dau2026: 415209}, {date: '0110', dau2025: 442023, dau2026: 324015}, {date: '0111', dau2025: 314514, dau2026: 307532}, {date: '0112', dau2025: 300726, dau2026: 421985}, {date: '0113', dau2025: 450866, dau2026: 413519}, {date: '0114', dau2025: 437837, dau2026: 403902}, {date: '0115', dau2025: 427180, dau2026: 407662}, {date: '0116', dau2025: 430926, dau2026: 405993}, {date: '0117', dau2025: 411870, dau2026: 309583}, {date: '0118', dau2025: 304542, dau2026: 305014}, {date: '0119', dau2025: 289679, dau2026: 414301}, {date: '0120', dau2025: 404115, dau2026: 390454}, {date: '0121', dau2025: 389318, dau2026: 389586}, {date: '0122', dau2025: 386223, dau2026: 392688}, {date: '0123', dau2025: 369675, dau2026: 393961}, {date: '0124', dau2025: 355731, dau2026: 302313}, {date: '0125', dau2025: 272758, dau2026: 304961}, {date: '0126', dau2025: 277902, dau2026: 407240}, {date: '0127', dau2025: 238142, dau2026: 392853}, {date: '0128', dau2025: 177367, dau2026: 382354}, {date: '0129', dau2025: 174383, dau2026: 387134}, {date: '0130', dau2025: 179935, dau2026: 388938}, {date: '0131', dau2025: 199256, dau2026: 298774}, {date: '0201', dau2025: 209689, dau2026: 285327}, {date: '0202', dau2025: 220207, dau2026: 384211}, {date: '0203', dau2025: 233150, dau2026: 368584}, {date: '0204', dau2025: 257073, dau2026: 363354}, {date: '0205', dau2025: 381696, dau2026: 356863}, {date: '0206', dau2025: 398307, dau2026: 351386}, {date: '0207', dau2025: 412139, dau2026: 264480}, {date: '0208', dau2025: 398585, dau2026: 253521}, {date: '0209', dau2025: 299343, dau2026: 341774}, {date: '0210', dau2025: 443743, dau2026: 341329}, {date: '0211', dau2025: 444033, dau2026: 322165}, {date: '0212', dau2025: 426630, dau2026: 303869}, {date: '0213', dau2025: 453636, dau2026: 270212}, {date: '0214', dau2025: 440129, dau2026: 228285}, {date: '0215', dau2025: 331450, dau2026: 204483}, {date: '0216', dau2025: 324795, dau2026: 169307}, {date: '0217', dau2025: 494786, dau2026: 167740}, {date: '0218', dau2025: 481731, dau2026: 170156}, {date: '0219', dau2025: 479509, dau2026: 176428}, {date: '0220', dau2025: 482446, dau2026: 188661}, {date: '0221', dau2025: 478723, dau2026: 199729}, {date: '0222', dau2025: 351614, dau2026: 212584}, {date: '0223', dau2025: 345614, dau2026: 241018}, {date: '0224', dau2025: 536972, dau2026: 340143}, {date: '0225', dau2025: 568739, dau2026: 349878}, {date: '0226', dau2025: 514484, dau2026: 364879}, {date: '0227', dau2025: 497906, dau2026: 375564}, {date: '0228', dau2025: 483134, dau2026: 366668}, {date: '0301', dau2025: 346151, dau2026: 290725}, {date: '0302', dau2025: 352843, dau2026: 418877}, {date: '0303', dau2025: 515573, dau2026: 385486}],
+            '微信H5': [{date: '0101', dau2025: 69046, dau2026: 245926}, {date: '0102', dau2025: 142549, dau2026: 270833}, {date: '0103', dau2025: 139137, dau2026: 302648}, {date: '0104', dau2025: 86682, dau2026: 439478}, {date: '0105', dau2025: 85728, dau2026: 461235}, {date: '0106', dau2025: 140096, dau2026: 470138}, {date: '0107', dau2025: 134131, dau2026: 479313}, {date: '0108', dau2025: 128884, dau2026: 464453}, {date: '0109', dau2025: 126803, dau2026: 438747}, {date: '0110', dau2025: 124474, dau2026: 326142}, {date: '0111', dau2025: 76190, dau2026: 316366}, {date: '0112', dau2025: 72380, dau2026: 450653}, {date: '0113', dau2025: 126511, dau2026: 451731}, {date: '0114', dau2025: 121664, dau2026: 469707}, {date: '0115', dau2025: 117204, dau2026: 438677}, {date: '0116', dau2025: 115466, dau2026: 419201}, {date: '0117', dau2025: 113160, dau2026: 317745}, {date: '0118', dau2025: 69233, dau2026: 327665}, {date: '0119', dau2025: 73809, dau2026: 429341}, {date: '0120', dau2025: 104981, dau2026: 407047}, {date: '0121', dau2025: 92806, dau2026: 406442}, {date: '0122', dau2025: 90160, dau2026: 404187}, {date: '0123', dau2025: 86091, dau2026: 399213}, {date: '0124', dau2025: 81634, dau2026: 295831}, {date: '0125', dau2025: 51546, dau2026: 328086}, {date: '0126', dau2025: 53459, dau2026: 436848}, {date: '0127', dau2025: 40758, dau2026: 423143}, {date: '0128', dau2025: 23651, dau2026: 438934}, {date: '0129', dau2025: 22257, dau2026: 422195}, {date: '0130', dau2025: 24450, dau2026: 434922}, {date: '0131', dau2025: 29049, dau2026: 315264}, {date: '0201', dau2025: 31871, dau2026: 310005}, {date: '0202', dau2025: 34062, dau2026: 405902}, {date: '0203', dau2025: 38170, dau2026: 406231}, {date: '0204', dau2025: 45120, dau2026: 387370}, {date: '0205', dau2025: 77515, dau2026: 390512}, {date: '0206', dau2025: 86739, dau2026: 380273}, {date: '0207', dau2025: 93389, dau2026: 280670}, {date: '0208', dau2025: 93489, dau2026: 252019}, {date: '0209', dau2025: 65000, dau2026: 345605}, {date: '0210', dau2025: 107825, dau2026: 346265}, {date: '0211', dau2025: 108925, dau2026: 293408}, {date: '0212', dau2025: 100745, dau2026: 281067}, {date: '0213', dau2025: 111444, dau2026: 235148}, {date: '0214', dau2025: 112259, dau2026: 193999}, {date: '0215', dau2025: 71758, dau2026: 161045}, {date: '0216', dau2025: 72512, dau2026: 319115}, {date: '0217', dau2025: 124465, dau2026: 205183}, {date: '0218', dau2025: 121807, dau2026: 137182}, {date: '0219', dau2025: 121688, dau2026: 141969}, {date: '0220', dau2025: 123253, dau2026: 156471}, {date: '0221', dau2025: 124317, dau2026: 172880}, {date: '0222', dau2025: 80531, dau2026: 190293}, {date: '0223', dau2025: 81214, dau2026: 225607}, {date: '0224', dau2025: 140956, dau2026: 335976}, {date: '0225', dau2025: 140541, dau2026: 367965}, {date: '0226', dau2025: 142120, dau2026: 399706}, {date: '0227', dau2025: 142661, dau2026: 436836}, {date: '0228', dau2025: 141523, dau2026: 457035}, {date: '0301', dau2025: 88886, dau2026: 399911}, {date: '0302', dau2025: 90952, dau2026: 518929}, {date: '0303', dau2025: 148545, dau2026: 448171}],
+            'QQ小程序': [{date: '0101', dau2025: 202124, dau2026: 51114}, {date: '0102', dau2025: 305773, dau2026: 57060}, {date: '0103', dau2025: 290670, dau2026: 78489}, {date: '0104', dau2025: 214457, dau2026: 102650}, {date: '0105', dau2025: 230961, dau2026: 104506}, {date: '0106', dau2025: 271302, dau2026: 104593}, {date: '0107', dau2025: 252439, dau2026: 103967}, {date: '0108', dau2025: 237888, dau2026: 100152}, {date: '0109', dau2025: 220654, dau2026: 99065}, {date: '0110', dau2025: 212789, dau2026: 74081}, {date: '0111', dau2025: 174483, dau2026: 80747}, {date: '0112', dau2025: 171651, dau2026: 91858}, {date: '0113', dau2025: 195900, dau2026: 85620}, {date: '0114', dau2025: 190500, dau2026: 82922}, {date: '0115', dau2025: 194150, dau2026: 82448}, {date: '0116', dau2025: 191477, dau2026: 78701}, {date: '0117', dau2025: 198965, dau2026: 63459}, {date: '0118', dau2025: 157356, dau2026: 71352}, {date: '0119', dau2025: 148605, dau2026: 77932}, {date: '0120', dau2025: 158043, dau2026: 70448}, {date: '0121', dau2025: 142446, dau2026: 68356}, {date: '0122', dau2025: 128365, dau2026: 63657}, {date: '0123', dau2025: 121584, dau2026: 66988}, {date: '0124', dau2025: 119754, dau2026: 56163}, {date: '0125', dau2025: 106794, dau2026: 60520}, {date: '0126', dau2025: 101448, dau2026: 68472}, {date: '0127', dau2025: 91698, dau2026: 64048}, {date: '0128', dau2025: 71310, dau2026: 66202}, {date: '0129', dau2025: 67464, dau2026: 65200}, {date: '0130', dau2025: 72980, dau2026: 68554}, {date: '0131', dau2025: 83728, dau2026: 58477}, {date: '0201', dau2025: 87043, dau2026: 61165}, {date: '0202', dau2025: 91532, dau2026: 67097}, {date: '0203', dau2025: 96280, dau2026: 67712}, {date: '0204', dau2025: 107929, dau2026: 66854}, {date: '0205', dau2025: 124847, dau2026: 64433}, {date: '0206', dau2025: 130599, dau2026: 56672}, {date: '0207', dau2025: 138527, dau2026: 48007}, {date: '0208', dau2025: 144985, dau2026: 45250}, {date: '0209', dau2025: 143859, dau2026: 47633}, {date: '0210', dau2025: 168348, dau2026: 41833}, {date: '0211', dau2025: 191305, dau2026: 41501}, {date: '0212', dau2025: 196873, dau2026: 40289}, {date: '0213', dau2025: 206943, dau2026: 40539}, {date: '0214', dau2025: 204843, dau2026: 36516}, {date: '0215', dau2025: 179830, dau2026: 34174}, {date: '0216', dau2025: 205749, dau2026: 28381}, {date: '0217', dau2025: 234252, dau2026: 26965}, {date: '0218', dau2025: 223586, dau2026: 31351}, {date: '0219', dau2025: 221129, dau2026: 32674}, {date: '0220', dau2025: 212883, dau2026: 39699}, {date: '0221', dau2025: 209354, dau2026: 40553}, {date: '0222', dau2025: 167977, dau2026: 48823}, {date: '0223', dau2025: 202702, dau2026: 54212}, {date: '0224', dau2025: 258993, dau2026: 61418}, {date: '0225', dau2025: 256910, dau2026: 60438}, {date: '0226', dau2025: 254494, dau2026: 65011}, {date: '0227', dau2025: 252900, dau2026: 73865}, {date: '0228', dau2025: 237048, dau2026: 79892}, {date: '0301', dau2025: 179558, dau2026: 85379}, {date: '0302', dau2025: 224973, dau2026: 98489}, {date: '0303', dau2025: 278156, dau2026: 100319}],
+            'QQh5': [{date: '0101', dau2025: 113913, dau2026: 82611}, {date: '0102', dau2025: 167308, dau2026: 93134}, {date: '0103', dau2025: 149236, dau2026: 117687}, {date: '0104', dau2025: 116633, dau2026: 151879}, {date: '0105', dau2025: 131613, dau2026: 157569}, {date: '0106', dau2025: 147547, dau2026: 156010}, {date: '0107', dau2025: 132943, dau2026: 154416}, {date: '0108', dau2025: 121969, dau2026: 145493}, {date: '0109', dau2025: 111236, dau2026: 145962}, {date: '0110', dau2025: 101038, dau2026: 116646}, {date: '0111', dau2025: 79834, dau2026: 125537}, {date: '0112', dau2025: 80201, dau2026: 138694}, {date: '0113', dau2025: 85482, dau2026: 129139}, {date: '0114', dau2025: 79790, dau2026: 124187}, {date: '0115', dau2025: 79623, dau2026: 123261}, {date: '0116', dau2025: 80595, dau2026: 119414}, {date: '0117', dau2025: 88493, dau2026: 103083}, {date: '0118', dau2025: 66146, dau2026: 110943}, {date: '0119', dau2025: 59244, dau2026: 117318}, {date: '0120', dau2025: 66548, dau2026: 109318}, {date: '0121', dau2025: 58343, dau2026: 106272}, {date: '0122', dau2025: 55300, dau2026: 104335}, {date: '0123', dau2025: 53210, dau2026: 106908}, {date: '0124', dau2025: 51126, dau2026: 94441}, {date: '0125', dau2025: 43626, dau2026: 102030}, {date: '0126', dau2025: 42716, dau2026: 111127}, {date: '0127', dau2025: 35037, dau2026: 102929}, {date: '0128', dau2025: 20969, dau2026: 103998}, {date: '0129', dau2025: 19910, dau2026: 105193}, {date: '0130', dau2025: 24500, dau2026: 115377}, {date: '0131', dau2025: 29884, dau2026: 95902}, {date: '0201', dau2025: 34449, dau2026: 96524}, {date: '0202', dau2025: 39418, dau2026: 106224}, {date: '0203', dau2025: 44118, dau2026: 98994}, {date: '0204', dau2025: 51462, dau2026: 97844}, {date: '0205', dau2025: 64284, dau2026: 99589}, {date: '0206', dau2025: 65417, dau2026: 94904}, {date: '0207', dau2025: 68170, dau2026: 79341}, {date: '0208', dau2025: 69384, dau2026: 77740}, {date: '0209', dau2025: 65647, dau2026: 81460}, {date: '0210', dau2025: 80250, dau2026: 91743}, {date: '0211', dau2025: 90195, dau2026: 80257}, {date: '0212', dau2025: 91156, dau2026: 74227}, {date: '0213', dau2025: 91220, dau2026: 75713}, {date: '0214', dau2025: 84111, dau2026: 66238}, {date: '0215', dau2025: 79309, dau2026: 60679}, {date: '0216', dau2025: 85788, dau2026: 51412}, {date: '0217', dau2025: 91709, dau2026: 49727}, {date: '0218', dau2025: 84932, dau2026: 54385}, {date: '0219', dau2025: 84206, dau2026: 57554}, {date: '0220', dau2025: 83210, dau2026: 63676}, {date: '0221', dau2025: 85261, dau2026: 69406}, {date: '0222', dau2025: 72843, dau2026: 79875}, {date: '0223', dau2025: 86699, dau2026: 94880}, {date: '0224', dau2025: 104119, dau2026: 107638}, {date: '0225', dau2025: 98539, dau2026: 106893}, {date: '0226', dau2025: 92372, dau2026: 112814}, {date: '0227', dau2025: 92369, dau2026: 126093}, {date: '0228', dau2025: 87410, dau2026: 134270}, {date: '0301', dau2025: 70588, dau2026: 139608}, {date: '0302', dau2025: 86028, dau2026: 163883}, {date: '0303', dau2025: 104051, dau2026: 169871}],
+            'Electron桌面端': [{date: '0101', dau2025: 33673, dau2026: 27823}, {date: '0102', dau2025: 92219, dau2026: 33191}, {date: '0103', dau2025: 88071, dau2026: 41576}, {date: '0104', dau2025: 46118, dau2026: 90182}, {date: '0105', dau2025: 41770, dau2026: 90715}, {date: '0106', dau2025: 90953, dau2026: 88032}, {date: '0107', dau2025: 85622, dau2026: 86612}, {date: '0108', dau2025: 83976, dau2026: 86464}, {date: '0109', dau2025: 83822, dau2026: 84457}, {date: '0110', dau2025: 82374, dau2026: 45085}, {date: '0111', dau2025: 41660, dau2026: 42497}, {date: '0112', dau2025: 38118, dau2026: 88769}, {date: '0113', dau2025: 85103, dau2026: 83908}, {date: '0114', dau2025: 79914, dau2026: 83188}, {date: '0115', dau2025: 77286, dau2026: 83064}, {date: '0116', dau2025: 76835, dau2026: 80502}, {date: '0117', dau2025: 74833, dau2026: 42734}, {date: '0118', dau2025: 39107, dau2026: 39601}, {date: '0119', dau2025: 35622, dau2026: 84874}, {date: '0120', dau2025: 73511, dau2026: 79607}, {date: '0121', dau2025: 66792, dau2026: 78757}, {date: '0122', dau2025: 62008, dau2026: 77935}, {date: '0123', dau2025: 58392, dau2026: 76643}, {date: '0124', dau2025: 51844, dau2026: 39980}, {date: '0125', dau2025: 27544, dau2026: 37807}, {date: '0126', dau2025: 30338, dau2026: 80764}, {date: '0127', dau2025: 21945, dau2026: 77038}, {date: '0128', dau2025: 10963, dau2026: 75395}, {date: '0129', dau2025: 10158, dau2026: 75184}, {date: '0130', dau2025: 11168, dau2026: 74688}, {date: '0131', dau2025: 13133, dau2026: 41078}, {date: '0201', dau2025: 14649, dau2026: 37314}, {date: '0202', dau2025: 16223, dau2026: 78305}, {date: '0203', dau2025: 19097, dau2026: 73462}, {date: '0204', dau2025: 24908, dau2026: 71190}, {date: '0205', dau2025: 59539, dau2026: 70399}, {date: '0206', dau2025: 66211, dau2026: 67862}, {date: '0207', dau2025: 70528, dau2026: 37376}, {date: '0208', dau2025: 68112, dau2026: 33214}, {date: '0209', dau2025: 36396, dau2026: 65129}, {date: '0210', dau2025: 81822, dau2026: 58129}, {date: '0211', dau2025: 79446, dau2026: 52673}, {date: '0212', dau2025: 74365, dau2026: 47079}, {date: '0213', dau2025: 82381, dau2026: 37439}, {date: '0214', dau2025: 81690, dau2026: 25102}, {date: '0215', dau2025: 42691, dau2026: 16541}, {date: '0216', dau2025: 40654, dau2026: 11213}, {date: '0217', dau2025: 93383, dau2026: 10264}, {date: '0218', dau2025: 88952, dau2026: 11606}, {date: '0219', dau2025: 88928, dau2026: 12808}, {date: '0220', dau2025: 90022, dau2026: 14370}, {date: '0221', dau2025: 90387, dau2026: 16236}, {date: '0222', dau2025: 46899, dau2026: 19569}, {date: '0223', dau2025: 44252, dau2026: 26955}, {date: '0224', dau2025: 97091, dau2026: 60734}, {date: '0225', dau2025: 93883, dau2026: 66057}, {date: '0226', dau2025: 92604, dau2026: 71421}, {date: '0227', dau2025: 93565, dau2026: 74035}, {date: '0228', dau2025: 92029, dau2026: 70574}, {date: '0301', dau2025: 47574, dau2026: 42800}, {date: '0302', dau2025: 46038, dau2026: 84553}, {date: '0303', dau2025: 100747, dau2026: 76691}]
+        };
+
+        // 计算统计数据
+        function calculateStats() {
+            const avg2025 = Math.round(overallData.reduce((sum, d) => sum + d.dau2025, 0) / overallData.length);
+            const avg2026 = Math.round(overallData.reduce((sum, d) => sum + d.dau2026, 0) / overallData.length);
+            const total2025 = overallData.reduce((sum, d) => sum + d.dau2025, 0);
+            const total2026 = overallData.reduce((sum, d) => sum + d.dau2026, 0);
+            const change = ((avg2026 - avg2025) / avg2025 * 100).toFixed(1);
+            
+            return { avg2025, avg2026, total2025, total2026, change };
+        }
+
+        // 渲染统计卡片
+        function renderStats() {
+            const stats = calculateStats();
+            const diffAbs = stats.avg2026 - stats.avg2025;
+            const sign = diffAbs >= 0 ? '+' : '';
+            const statsGrid = document.getElementById('statsGrid');
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-label">2025年平均DAU</div>
+                    <div class="stat-value">${stats.avg2025.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">2026年平均DAU</div>
+                    <div class="stat-value">${stats.avg2026.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">绝对值变化</div>
+                    <div class="stat-value" style="color: ${diffAbs >= 0 ? '#10b981' : '#ef4444'}">${sign}${diffAbs.toLocaleString()}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">百分比变化</div>
+                    <div class="stat-value" style="color: ${stats.change >= 0 ? '#10b981' : '#ef4444'}">${sign}${stats.change}%</div>
+                </div>
+            `;
+        }
+
+        // 整体趋势图
+        function renderOverallChart() {
+            const chart = echarts.init(document.getElementById('overallChart'));
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' }
+                },
+                legend: {
+                    data: ['2025年 DAU', '2026年 DAU'],
+                    top: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: overallData.map(d => d.date),
+                    axisLabel: {
+                        interval: 6,
+                        rotate: 45
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: value => (value / 1000000).toFixed(1) + 'M'
+                    }
+                },
+                series: [
+                    {
+                        name: '2025年 DAU',
+                        type: 'line',
+                        data: overallData.map(d => d.dau2025),
+                        smooth: true,
+                        lineStyle: { width: 3, color: '#667eea' },
+                        itemStyle: { color: '#667eea' },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(102, 126, 234, 0.3)' },
+                                    { offset: 1, color: 'rgba(102, 126, 234, 0.05)' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: '2026年 DAU',
+                        type: 'line',
+                        data: overallData.map(d => d.dau2026),
+                        smooth: true,
+                        lineStyle: { width: 3, color: '#f59e0b' },
+                        itemStyle: { color: '#f59e0b' },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: 'rgba(245, 158, 11, 0.3)' },
+                                    { offset: 1, color: 'rgba(245, 158, 11, 0.05)' }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            };
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        // 平台趋势图
+        let currentPlatform = '微信小程序';
+        function renderPlatformChart(platform) {
+            const chart = echarts.init(document.getElementById('platformChart'));
+            const data = platformData[platform];
+            
+            // 计算平均值和变化
+            const avg2025 = data.reduce((sum, d) => sum + d.dau2025, 0) / data.length;
+            const avg2026 = data.reduce((sum, d) => sum + d.dau2026, 0) / data.length;
+            const diffAbs = avg2026 - avg2025;
+            const diffPercent = ((diffAbs / avg2025) * 100).toFixed(1);
+            const sign = diffAbs >= 0 ? '+' : '';
+            const color = diffAbs >= 0 ? '#10b981' : '#ef4444';
+            
+            document.getElementById('platformChartTitle').innerHTML = 
+                `📱 ${platform} - DAU趋势对比 ` +
+                `<span style="font-size: 14px; color: #666; font-weight: normal;">(2026.01.01-03.03 vs 2025.01.01-03.03)</span> ` +
+                `<span style="color: ${color}; font-size: 16px; font-weight: normal;">` +
+                `(${sign}${(diffAbs / 10000).toFixed(1)}万 / ${sign}${diffPercent}%)</span>`;
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    formatter: function(params) {
+                        const dataIndex = params[0].dataIndex;
+                        let result = params[0].axisValue + '<br/>';
+                        let val2025 = 0, val2026 = 0;
+                        params.forEach(p => {
+                            result += p.marker + p.seriesName + ': ' + 
+                                     (p.value / 10000).toFixed(1) + '万<br/>';
+                            if (p.seriesName === '2025年') val2025 = p.value;
+                            if (p.seriesName === '2026年') val2026 = p.value;
+                        });
+                        if (val2025 && val2026) {
+                            const diff = val2026 - val2025;
+                            const diffPercent = ((diff / val2025) * 100).toFixed(1);
+                            const sign = diff >= 0 ? '+' : '';
+                            const color = diff >= 0 ? '#10b981' : '#ef4444';
+                            result += '<hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>';
+                            result += '<span style="color:' + color + '; font-weight: bold;">';
+                            result += '同比: ' + sign + (diff / 10000).toFixed(1) + '万 (' + sign + diffPercent + '%)</span>';
+                        }
+                        return result;
+                    }
+                },
+                legend: {
+                    data: ['2025年', '2026年'],
+                    top: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: data.map(d => d.date),
+                    axisLabel: {
+                        interval: 6,
+                        rotate: 45
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: value => (value / 10000).toFixed(1) + '万'
+                    }
+                },
+                series: [
+                    {
+                        name: '2025年',
+                        type: 'line',
+                        data: data.map(d => d.dau2025),
+                        smooth: true,
+                        lineStyle: { width: 3, color: '#10b981' },
+                        itemStyle: { color: '#10b981' }
+                    },
+                    {
+                        name: '2026年',
+                        type: 'line',
+                        data: data.map(d => d.dau2026),
+                        smooth: true,
+                        lineStyle: { width: 3, color: '#ef4444' },
+                        itemStyle: { color: '#ef4444' }
+                    }
+                ]
+            };
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        // 平台增长率图
+        function renderGrowthChart() {
+            const chart = echarts.init(document.getElementById('growthChart'));
+            const platforms = Object.keys(platformData);
+            const growthData = platforms.map(platform => {
+                const data = platformData[platform];
+                const avg2025 = data.reduce((sum, d) => sum + d.dau2025, 0) / data.length;
+                const avg2026 = data.reduce((sum, d) => sum + d.dau2026, 0) / data.length;
+                const diffAbs = avg2026 - avg2025;
+                return {
+                    platform,
+                    growth: ((diffAbs / avg2025) * 100).toFixed(1),
+                    diffAbs: (diffAbs / 10000).toFixed(1)
+                };
+            });
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: function(params) {
+                        const item = growthData[params[0].dataIndex];
+                        const sign = item.growth >= 0 ? '+' : '';
+                        return params[0].name + '<br/>' + 
+                               params[0].marker + '同比增长率: ' + sign + item.growth + '%<br/>' +
+                               '绝对值变化: ' + sign + item.diffAbs + '万';
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: growthData.map(d => d.platform),
+                    axisLabel: {
+                        rotate: 45,
+                        interval: 0
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: '{value}%'
+                    }
+                },
+                series: [{
+                    name: '增长率',
+                    type: 'bar',
+                    data: growthData.map(d => ({
+                        value: d.growth,
+                        itemStyle: {
+                            color: d.growth >= 0 ? '#10b981' : '#ef4444'
+                        }
+                    })),
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: function(params) {
+                            const item = growthData[params.dataIndex];
+                            const sign = item.growth >= 0 ? '+' : '';
+                            return sign + item.growth + '%\n(' + sign + item.diffAbs + '万)';
+                        },
+                        fontSize: 11,
+                        fontWeight: 'bold',
+                        lineHeight: 16
+                    },
+                    barWidth: '50%'
+                }]
+            };
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        // 渲染平台按钮
+        function renderPlatformButtons() {
+            const container = document.getElementById('platformButtons');
+            const platforms = Object.keys(platformData);
+            platforms.forEach(platform => {
+                const btn = document.createElement('button');
+                btn.className = 'platform-btn' + (platform === currentPlatform ? ' active' : '');
+                btn.textContent = platform;
+                btn.onclick = () => {
+                    currentPlatform = platform;
+                    document.querySelectorAll('.platform-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderPlatformChart(platform);
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 文档指标数据（按天，只保留有26年数据的部分即01-01到03-03）
+// 编辑文档数（按天）
+        const editDailyData = [
+            {date: '0101', val2025: 168796, val2026: 111720},
+            {date: '0102', val2025: 363079, val2026: 139085},
+            {date: '0103', val2025: 338845, val2026: 194704},
+            {date: '0104', val2025: 204122, val2026: 364752},
+            {date: '0105', val2025: 214303, val2026: 364810},
+            {date: '0106', val2025: 341224, val2026: 355375},
+            {date: '0107', val2025: 321139, val2026: 348612},
+            {date: '0108', val2025: 304759, val2026: 346072},
+            {date: '0109', val2025: 297385, val2026: 326753},
+            {date: '0110', val2025: 281392, val2026: 191485},
+            {date: '0111', val2025: 168012, val2026: 201644},
+            {date: '0112', val2025: 163819, val2026: 334500},
+            {date: '0113', val2025: 274920, val2026: 316268},
+            {date: '0114', val2025: 264828, val2026: 312534},
+            {date: '0115', val2025: 253698, val2026: 306820},
+            {date: '0116', val2025: 249937, val2026: 294694},
+            {date: '0117', val2025: 239913, val2026: 171570},
+            {date: '0118', val2025: 144921, val2026: 178547},
+            {date: '0119', val2025: 136192, val2026: 303176},
+            {date: '0120', val2025: 217832, val2026: 284637},
+            {date: '0121', val2025: 199006, val2026: 279536},
+            {date: '0122', val2025: 187397, val2026: 277470},
+            {date: '0123', val2025: 178747, val2026: 271966},
+            {date: '0124', val2025: 164722, val2026: 158282},
+            {date: '0125', val2025: 104293, val2026: 162044},
+            {date: '0126', val2025: 110019, val2026: 283983},
+            {date: '0127', val2025: 84970, val2026: 272439},
+            {date: '0128', val2025: 46089, val2026: 267255},
+            {date: '0129', val2025: 39478, val2026: 266697},
+            {date: '0130', val2025: 46324, val2026: 265984},
+            {date: '0131', val2025: 55651, val2026: 159270},
+            {date: '0201', val2025: 61544, val2026: 150683},
+            {date: '0202', val2025: 68166, val2026: 264303},
+            {date: '0203', val2025: 79182, val2026: 250902},
+            {date: '0204', val2025: 99466, val2026: 243960},
+            {date: '0205', val2025: 177749, val2026: 242425},
+            {date: '0206', val2025: 198185, val2026: 234580},
+            {date: '0207', val2025: 211826, val2026: 142382},
+            {date: '0208', val2025: 213535, val2026: 132674},
+            {date: '0209', val2025: 152571, val2026: 222190},
+            {date: '0210', val2025: 256249, val2026: 199952},
+            {date: '0211', val2025: 268226, val2026: 185275},
+            {date: '0212', val2025: 254366, val2026: 169464},
+            {date: '0213', val2025: 274192, val2026: 141052},
+            {date: '0214', val2025: 263333, val2026: 102290},
+            {date: '0215', val2025: 187137, val2026: 70897},
+            {date: '0216', val2025: 202435, val2026: 48299},
+            {date: '0217', val2025: 307848, val2026: 43585},
+            {date: '0218', val2025: 297755, val2026: 51598},
+            {date: '0219', val2025: 304511, val2026: 59825},
+            {date: '0220', val2025: 305637, val2026: 69168},
+            {date: '0221', val2025: 299622, val2026: 79992},
+            {date: '0222', val2025: 193641, val2026: 96890},
+            {date: '0223', val2025: 219725, val2026: 130795},
+            {date: '0224', val2025: 351072, val2026: 223978},
+            {date: '0225', val2025: 345652, val2026: 242523},
+            {date: '0226', val2025: 338796, val2026: 263458},
+            {date: '0227', val2025: 343169, val2026: 282728},
+            {date: '0228', val2025: 320222, val2026: 284169},
+            {date: '0301', val2025: 195054, val2026: 220137},
+            {date: '0302', val2025: 227912, val2026: 337688},
+            {date: '0303', val2025: 361776, val2026: 318645},
+        ];
+
+// 创建文档数（按天）
+        const createDailyData = [
+            {date: '0101', val2025: 464933, val2026: 181402},
+            {date: '0102', val2025: 790895, val2026: 229541},
+            {date: '0103', val2025: 697608, val2026: 320408},
+            {date: '0104', val2025: 498316, val2026: 507922},
+            {date: '0105', val2025: 540042, val2026: 493225},
+            {date: '0106', val2025: 700872, val2026: 482746},
+            {date: '0107', val2025: 647452, val2026: 462124},
+            {date: '0108', val2025: 598354, val2026: 445770},
+            {date: '0109', val2025: 563343, val2026: 408020},
+            {date: '0110', val2025: 526795, val2026: 285901},
+            {date: '0111', val2025: 381174, val2026: 307555},
+            {date: '0112', val2025: 369535, val2026: 416003},
+            {date: '0113', val2025: 481195, val2026: 397198},
+            {date: '0114', val2025: 462961, val2026: 402910},
+            {date: '0115', val2025: 470332, val2026: 389383},
+            {date: '0116', val2025: 464278, val2026: 366648},
+            {date: '0117', val2025: 458340, val2026: 249249},
+            {date: '0118', val2025: 318638, val2026: 269598},
+            {date: '0119', val2025: 292510, val2026: 379829},
+            {date: '0120', val2025: 375624, val2026: 348953},
+            {date: '0121', val2025: 340580, val2026: 338788},
+            {date: '0122', val2025: 317004, val2026: 334098},
+            {date: '0123', val2025: 301927, val2026: 331201},
+            {date: '0124', val2025: 282397, val2026: 229001},
+            {date: '0125', val2025: 211569, val2026: 238120},
+            {date: '0126', val2025: 210050, val2026: 333197},
+            {date: '0127', val2025: 164340, val2026: 319852},
+            {date: '0128', val2025: 93905, val2026: 319400},
+            {date: '0129', val2025: 82075, val2026: 321721},
+            {date: '0130', val2025: 99601, val2026: 321679},
+            {date: '0131', val2025: 121764, val2026: 226266},
+            {date: '0201', val2025: 141543, val2026: 215739},
+            {date: '0202', val2025: 163640, val2026: 316545},
+            {date: '0203', val2025: 184335, val2026: 301943},
+            {date: '0204', val2025: 225782, val2026: 293758},
+            {date: '0205', val2025: 329143, val2026: 302948},
+            {date: '0206', val2025: 353250, val2026: 283774},
+            {date: '0207', val2025: 372602, val2026: 192287},
+            {date: '0208', val2025: 375150, val2026: 181162},
+            {date: '0209', val2025: 320932, val2026: 261868},
+            {date: '0210', val2025: 456236, val2026: 237942},
+            {date: '0211', val2025: 499163, val2026: 222415},
+            {date: '0212', val2025: 481217, val2026: 206599},
+            {date: '0213', val2025: 506908, val2026: 178647},
+            {date: '0214', val2025: 472072, val2026: 137425},
+            {date: '0215', val2025: 401283, val2026: 103073},
+            {date: '0216', val2025: 438904, val2026: 69197},
+            {date: '0217', val2025: 559122, val2026: 62051},
+            {date: '0218', val2025: 522560, val2026: 77020},
+            {date: '0219', val2025: 523235, val2026: 92007},
+            {date: '0220', val2025: 514580, val2026: 109725},
+            {date: '0221', val2025: 504841, val2026: 125587},
+            {date: '0222', val2025: 384896, val2026: 159895},
+            {date: '0223', val2025: 443135, val2026: 212839},
+            {date: '0224', val2025: 599512, val2026: 323239},
+            {date: '0225', val2025: 588074, val2026: 335023},
+            {date: '0226', val2025: 567907, val2026: 357590},
+            {date: '0227', val2025: 565121, val2026: 383132},
+            {date: '0228', val2025: 527344, val2026: 395149},
+            {date: '0301', val2025: 377228, val2026: 354671},
+            {date: '0302', val2025: 451216, val2026: 464894},
+            {date: '0303', val2025: 617491, val2026: 437286},
+        ];
+
+// 活跃文档数（按天）
+        const activeDailyData = [
+            {date: '0101', val2025: 670316, val2026: 440017},
+            {date: '0102', val2025: 1197708, val2026: 518206},
+            {date: '0103', val2025: 1119267, val2026: 660719},
+            {date: '0104', val2025: 785499, val2026: 1083514},
+            {date: '0105', val2025: 805661, val2026: 1094013},
+            {date: '0106', val2025: 1141257, val2026: 1065478},
+            {date: '0107', val2025: 1070747, val2026: 1041515},
+            {date: '0108', val2025: 1018836, val2026: 1018673},
+            {date: '0109', val2025: 981170, val2026: 967941},
+            {date: '0110', val2025: 941998, val2026: 668754},
+            {date: '0111', val2025: 662749, val2026: 691018},
+            {date: '0112', val2025: 637339, val2026: 1010260},
+            {date: '0113', val2025: 914052, val2026: 962830},
+            {date: '0114', val2025: 890417, val2026: 948320},
+            {date: '0115', val2025: 866797, val2026: 922672},
+            {date: '0116', val2025: 858666, val2026: 889549},
+            {date: '0117', val2025: 855103, val2026: 618050},
+            {date: '0118', val2025: 600331, val2026: 624787},
+            {date: '0119', val2025: 556001, val2026: 909637},
+            {date: '0120', val2025: 769546, val2026: 856561},
+            {date: '0121', val2025: 712699, val2026: 843477},
+            {date: '0122', val2025: 670351, val2026: 819693},
+            {date: '0123', val2025: 640880, val2026: 810183},
+            {date: '0124', val2025: 601662, val2026: 566702},
+            {date: '0125', val2025: 447560, val2026: 569268},
+            {date: '0126', val2025: 456518, val2026: 845129},
+            {date: '0127', val2025: 371567, val2026: 818931},
+            {date: '0128', val2025: 233686, val2026: 814030},
+            {date: '0129', val2025: 218587, val2026: 811178},
+            {date: '0130', val2025: 252439, val2026: 825759},
+            {date: '0131', val2025: 292036, val2026: 584000},
+            {date: '0201', val2025: 325126, val2026: 552243},
+            {date: '0202', val2025: 356170, val2026: 815744},
+            {date: '0203', val2025: 392969, val2026: 783467},
+            {date: '0204', val2025: 460581, val2026: 769488},
+            {date: '0205', val2025: 686991, val2026: 760969},
+            {date: '0206', val2025: 738485, val2026: 742973},
+            {date: '0207', val2025: 774543, val2026: 524764},
+            {date: '0208', val2025: 770939, val2026: 486283},
+            {date: '0209', val2025: 621118, val2026: 704508},
+            {date: '0210', val2025: 915694, val2026: 651084},
+            {date: '0211', val2025: 964976, val2026: 611404},
+            {date: '0212', val2025: 926530, val2026: 565457},
+            {date: '0213', val2025: 947812, val2026: 489449},
+            {date: '0214', val2025: 890466, val2026: 389492},
+            {date: '0215', val2025: 708798, val2026: 309574},
+            {date: '0216', val2025: 730586, val2026: 223242},
+            {date: '0217', val2025: 1011864, val2026: 212460},
+            {date: '0218', val2025: 978037, val2026: 241205},
+            {date: '0219', val2025: 990141, val2026: 272632},
+            {date: '0220', val2025: 981724, val2026: 306764},
+            {date: '0221', val2025: 964003, val2026: 342823},
+            {date: '0222', val2025: 705269, val2026: 402621},
+            {date: '0223', val2025: 753247, val2026: 503456},
+            {date: '0224', val2025: 1091520, val2026: 755360},
+            {date: '0225', val2025: 1072479, val2026: 801340},
+            {date: '0226', val2025: 1062855, val2026: 851331},
+            {date: '0227', val2025: 1047871, val2026: 909625},
+            {date: '0228', val2025: 997293, val2026: 906414},
+            {date: '0301', val2025: 694217, val2026: 748765},
+            {date: '0302', val2025: 767155, val2026: 1021189},
+            {date: '0303', val2025: 1121012, val2026: 972021},
+        ];
+
+// 协作文档数（按天）
+        const collabDailyData = [
+            {date: '0101', val2025: 189916, val2026: 164025},
+            {date: '0102', val2025: 354624, val2026: 179493},
+            {date: '0103', val2025: 347350, val2026: 203444},
+            {date: '0104', val2025: 230206, val2026: 349255},
+            {date: '0105', val2025: 223375, val2026: 354387},
+            {date: '0106', val2025: 356728, val2026: 344570},
+            {date: '0107', val2025: 338714, val2026: 341140},
+            {date: '0108', val2025: 332113, val2026: 340923},
+            {date: '0109', val2025: 329429, val2026: 337075},
+            {date: '0110', val2025: 321525, val2026: 218506},
+            {date: '0111', val2025: 214508, val2026: 214701},
+            {date: '0112', val2025: 207190, val2026: 347713},
+            {date: '0113', val2025: 327951, val2026: 333937},
+            {date: '0114', val2025: 318547, val2026: 333065},
+            {date: '0115', val2025: 309325, val2026: 332486},
+            {date: '0116', val2025: 306004, val2026: 330262},
+            {date: '0117', val2025: 297971, val2026: 215391},
+            {date: '0118', val2025: 201595, val2026: 211380},
+            {date: '0119', val2025: 192696, val2026: 341942},
+            {date: '0120', val2025: 285647, val2026: 325513},
+            {date: '0121', val2025: 266126, val2026: 324546},
+            {date: '0122', val2025: 254400, val2026: 324649},
+            {date: '0123', val2025: 244305, val2026: 321558},
+            {date: '0124', val2025: 228073, val2026: 212263},
+            {date: '0125', val2025: 164687, val2026: 207666},
+            {date: '0126', val2025: 171784, val2026: 337033},
+            {date: '0127', val2025: 144183, val2026: 327720},
+            {date: '0128', val2025: 103072, val2026: 323579},
+            {date: '0129', val2025: 99167, val2026: 323149},
+            {date: '0130', val2025: 106348, val2026: 320187},
+            {date: '0131', val2025: 116021, val2026: 215515},
+            {date: '0201', val2025: 121763, val2026: 204855},
+            {date: '0202', val2025: 127504, val2026: 321471},
+            {date: '0203', val2025: 135803, val2026: 309473},
+            {date: '0204', val2025: 150825, val2026: 304810},
+            {date: '0205', val2025: 233552, val2026: 301628},
+            {date: '0206', val2025: 252168, val2026: 293032},
+            {date: '0207', val2025: 264996, val2026: 200216},
+            {date: '0208', val2025: 263577, val2026: 186574},
+            {date: '0209', val2025: 192085, val2026: 278767},
+            {date: '0210', val2025: 300177, val2026: 259482},
+            {date: '0211', val2025: 302449, val2026: 244615},
+            {date: '0212', val2025: 290016, val2026: 228930},
+            {date: '0213', val2025: 312153, val2026: 198116},
+            {date: '0214', val2025: 311478, val2026: 158142},
+            {date: '0215', val2025: 218291, val2026: 129412},
+            {date: '0216', val2025: 219894, val2026: 105307},
+            {date: '0217', val2025: 340701, val2026: 101660},
+            {date: '0218', val2025: 332036, val2026: 108761},
+            {date: '0219', val2025: 335247, val2026: 113980},
+            {date: '0220', val2025: 340358, val2026: 122803},
+            {date: '0221', val2025: 338208, val2026: 128115},
+            {date: '0222', val2025: 231043, val2026: 140031},
+            {date: '0223', val2025: 231555, val2026: 164615},
+            {date: '0224', val2025: 367289, val2026: 257082},
+            {date: '0225', val2025: 358640, val2026: 277260},
+            {date: '0226', val2025: 358856, val2026: 295251},
+            {date: '0227', val2025: 356004, val2026: 317386},
+            {date: '0228', val2025: 350769, val2026: 306650},
+            {date: '0301', val2025: 231608, val2026: 227409},
+            {date: '0302', val2025: 239955, val2026: 347331},
+            {date: '0303', val2025: 375980, val2026: 329424},
+        ];
+        
+        function processDailyData(data) {
+            return data.map(d => ({
+                date: d.date,
+                val2025: d.val2025,
+                val2026: d.val2026,
+                diff: d.val2026 - d.val2025,
+                diffPercent: d.val2025 > 0 ? ((d.val2026 - d.val2025) / d.val2025 * 100).toFixed(1) : '0.0'
+            }));
+        }
+        
+        const editData = processDailyData(editDailyData);
+        const createData = processDailyData(createDailyData);
+        const activeData = processDailyData(activeDailyData);
+        const collabData = processDailyData(collabDailyData);
+        
+        // 渲染文档指标图表
+        function renderMetricChart(chartId, title, data, color2025, color2026) {
+            const chart = echarts.init(document.getElementById(chartId));
+            
+            // 计算总体变化
+            const total2025 = data.reduce((sum, d) => sum + d.val2025, 0);
+            const total2026 = data.reduce((sum, d) => sum + d.val2026, 0);
+            const diffAbs = total2026 - total2025;
+            const diffPercent = ((diffAbs / total2025) * 100).toFixed(1);
+            const sign = diffAbs >= 0 ? '+' : '';
+            const color = diffAbs >= 0 ? '#10b981' : '#ef4444';
+            
+            // 更新标题
+            const titleElement = document.querySelector(`#${chartId}`).parentElement.querySelector('.card-title');
+            if (titleElement) {
+                const originalTitle = titleElement.textContent.split('(')[0].trim();
+                titleElement.innerHTML = 
+                    originalTitle + 
+                    ` <span style="color: ${color}; font-size: 16px; font-weight: normal;">` +
+                    `(${sign}${(diffAbs / 10000).toFixed(0)}万 / ${sign}${diffPercent}%)</span>`;
+            }
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    formatter: function(params) {
+                        const dataIndex = params[0].dataIndex;
+                        const item = data[dataIndex];
+                        let result = params[0].axisValue + '<br/>';
+                        params.forEach(p => {
+                            result += p.marker + p.seriesName + ': ' + 
+                                     (p.value / 10000).toFixed(0) + '万<br/>';
+                        });
+                        if (item) {
+                            const diffAbs = (item.diff / 10000).toFixed(0);
+                            const diffPercent = item.diffPercent;
+                            const sign = item.diff >= 0 ? '+' : '';
+                            const color = item.diff >= 0 ? '#10b981' : '#ef4444';
+                            result += '<hr style="margin: 5px 0; border: none; border-top: 1px solid #eee;"/>';
+                            result += '<span style="color:' + color + '; font-weight: bold;">';
+                            result += '同比变化: ' + sign + diffAbs + '万 (' + sign + diffPercent + '%)</span>';
+                        }
+                        return result;
+                    }
+                },
+                legend: {
+                    data: ['2025年', '2026年'],
+                    top: 10
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: data.map(d => d.date),
+                    axisLabel: { 
+                        interval: 'auto',
+                        rotate: 45
+                    }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: value => (value / 10000).toFixed(0) + '万'
+                    }
+                },
+                series: [
+                    {
+                        name: '2025年',
+                        type: 'line',
+                        data: data.map(d => d.val2025),
+                        smooth: true,
+                        lineStyle: { width: 3, color: color2025 },
+                        itemStyle: { color: color2025 },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: color2025 + '4d' },
+                                    { offset: 1, color: color2025 + '0d' }
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        name: '2026年',
+                        type: 'line',
+                        data: data.map(d => d.val2026),
+                        smooth: true,
+                        lineStyle: { width: 3, color: color2026 },
+                        itemStyle: { color: color2026 },
+                        areaStyle: {
+                            color: {
+                                type: 'linear',
+                                x: 0, y: 0, x2: 0, y2: 1,
+                                colorStops: [
+                                    { offset: 0, color: color2026 + '4d' },
+                                    { offset: 1, color: color2026 + '0d' }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            };
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+        
+        // 四大指标增长率对比
+        function renderMetricsCompareChart() {
+            const chart = echarts.init(document.getElementById('metricsCompareChart'));
+            
+            // 计算总和（基于每日数据）
+            const editTotal2025 = editData.reduce((sum, d) => sum + d.val2025, 0);
+            const editTotal2026 = editData.reduce((sum, d) => sum + d.val2026, 0);
+            const createTotal2025 = createData.reduce((sum, d) => sum + d.val2025, 0);
+            const createTotal2026 = createData.reduce((sum, d) => sum + d.val2026, 0);
+            const activeTotal2025 = activeData.reduce((sum, d) => sum + d.val2025, 0);
+            const activeTotal2026 = activeData.reduce((sum, d) => sum + d.val2026, 0);
+            const collabTotal2025 = collabData.reduce((sum, d) => sum + d.val2025, 0);
+            const collabTotal2026 = collabData.reduce((sum, d) => sum + d.val2026, 0);
+            
+            const metrics = [
+                { 
+                    name: '编辑文档数', 
+                    growth: ((editTotal2026 - editTotal2025) / editTotal2025 * 100).toFixed(1),
+                    diffAbs: ((editTotal2026 - editTotal2025) / 10000).toFixed(0)
+                },
+                { 
+                    name: '创建文档数', 
+                    growth: ((createTotal2026 - createTotal2025) / createTotal2025 * 100).toFixed(1),
+                    diffAbs: ((createTotal2026 - createTotal2025) / 10000).toFixed(0)
+                },
+                { 
+                    name: '活跃文档数', 
+                    growth: ((activeTotal2026 - activeTotal2025) / activeTotal2025 * 100).toFixed(1),
+                    diffAbs: ((activeTotal2026 - activeTotal2025) / 10000).toFixed(0)
+                },
+                { 
+                    name: '协作文档数', 
+                    growth: ((collabTotal2026 - collabTotal2025) / collabTotal2025 * 100).toFixed(1),
+                    diffAbs: ((collabTotal2026 - collabTotal2025) / 10000).toFixed(0)
+                }
+            ];
+            
+            const option = {
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'shadow' },
+                    formatter: function(params) {
+                        const metric = metrics[params[0].dataIndex];
+                        const sign = metric.growth >= 0 ? '+' : '';
+                        return params[0].name + '<br/>' + 
+                               params[0].marker + '同比增长率: ' + sign + metric.growth + '%<br/>' +
+                               '绝对值变化: ' + sign + metric.diffAbs + '万';
+                    }
+                },
+                grid: {
+                    left: '3%',
+                    right: '4%',
+                    bottom: '3%',
+                    containLabel: true
+                },
+                xAxis: {
+                    type: 'category',
+                    data: metrics.map(m => m.name),
+                    axisLabel: { interval: 0, rotate: 0 }
+                },
+                yAxis: {
+                    type: 'value',
+                    axisLabel: {
+                        formatter: '{value}%'
+                    }
+                },
+                series: [{
+                    name: '增长率',
+                    type: 'bar',
+                    data: metrics.map(m => ({
+                        value: m.growth,
+                        itemStyle: {
+                            color: m.growth >= 0 ? '#10b981' : '#ef4444'
+                        }
+                    })),
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: function(params) {
+                            const metric = metrics[params.dataIndex];
+                            const sign = metric.growth >= 0 ? '+' : '';
+                            return sign + metric.growth + '%\n(' + sign + metric.diffAbs + '万)';
+                        },
+                        fontSize: 12,
+                        fontWeight: 'bold',
+                        lineHeight: 16
+                    },
+                    barWidth: '50%'
+                }]
+            };
+            chart.setOption(option);
+            window.addEventListener('resize', () => chart.resize());
+        }
+
+        // 初始化
+        renderStats();
+        renderOverallChart();
+        renderPlatformButtons();
+        renderPlatformChart(currentPlatform);
+        renderGrowthChart();
+        
+        // 渲染文档指标图表
+        renderMetricChart('editChart', '编辑文档数', editData, '#667eea', '#f59e0b');
+        renderMetricChart('createChart', '创建文档数', createData, '#10b981', '#ef4444');
+        renderMetricChart('activeChart', '活跃文档数', activeData, '#8b5cf6', '#ec4899');
+        renderMetricChart('collabChart', '协作文档数', collabData, '#06b6d4', '#f97316');
+        renderMetricsCompareChart();
+    </script>
+</body>
+</html>
